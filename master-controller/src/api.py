@@ -71,7 +71,7 @@ async def predict_batch(request: PredictionRequest):
 
     try:
         with Worker(
-            service_name= "ts-models-" + request.model_name + "-1",
+            service_name=request.model_name,  # Matches container_name in compose file
             base_url=f"http://{request.model_name}",
         ) as worker:
             # Convert Pydantic models to dicts for JSON serialization
