@@ -57,7 +57,11 @@ def log_participation(round_id: str, challenge_name: str, model_container: str,
 
 # --- HTTP Helper Functions ---
 def http_get(path: str, with_auth: bool = True) -> requests.Response:
-    url = f"{API_BASE_URL}{path}"
+    # Handle double slashes - strip trailing slash from base URL and ensure path starts with /
+    base = API_BASE_URL.rstrip('/')
+    if not path.startswith('/'):
+        path = '/' + path
+    url = f"{base}{path}"
     headers = {"X-API-Key": API_KEY} if with_auth else {}
     logger.debug(f"GET {url} (auth={with_auth})")
     try:
@@ -72,7 +76,11 @@ def http_get(path: str, with_auth: bool = True) -> requests.Response:
 
 
 def http_post(path: str, json_data: Dict[str, Any]) -> requests.Response:
-    url = f"{API_BASE_URL}{path}"
+    # Handle double slashes
+    base = API_BASE_URL.rstrip('/')
+    if not path.startswith('/'):
+        path = '/' + path
+    url = f"{base}{path}"
     logger.debug(f"POST {url}")
     try:
         resp = requests.post(url, json=json_data, timeout=REQUEST_TIMEOUT, headers={"X-API-Key": API_KEY})
@@ -166,9 +174,9 @@ def resolve_models(config: Dict[str, Any], registered_models: List[Dict[str, Any
 
 # --- API Utils ---
 def get_all_challenges() -> List[Dict[str, Any]]:
-    """Fetch all available challenges (registration phase)"""
+    """Fetch all available challenge rounds (registration phase)"""
     try:
-        resp = http_get("/api/v1/challenge/", with_auth=True)
+        resp = http_get("/api/v1/challenge/rounds?status=registration", with_auth=True)
         return resp.json() or []
     except Exception as e:
         logger.error(f"Error fetching challenges: {e}")
@@ -177,7 +185,7 @@ def get_all_challenges() -> List[Dict[str, Any]]:
 def get_context_data(round_id: str) -> List[Dict[str, Any]]:
     """Fetch context data for a challenge round"""
     try:
-        resp = http_get(f"/api/v1/challenge/{round_id}/context-data", with_auth=True)
+        resp = http_get(f"/api/v1/challenge/rounds/{round_id}/context-data", with_auth=True)
         return resp.json() or []
     except Exception as e:
         logger.error(f"Error fetching context data for round {round_id}: {e}")
@@ -437,8 +445,8 @@ def process_challenge(challenge: Dict[str, Any], active_models: List[Tuple[str, 
             # Format forecasts
             forecasts = format_forecasts(predictions, series_names, max_timestamps, frequency_delta)
             
-            # Upload uses api_model_name
-            upload_forecasts(int(round_id), container_name, forecasts)
+            # Upload uses api_model_name (e.g., 'Statistical/Naive')
+            upload_forecasts(int(round_id), api_model_name, forecasts)
             log_participation(str(round_id), challenge_name, container_name, api_model_name, "SUCCESS", f"Uploaded {len(forecasts)} series")
             
         except Exception as e:
